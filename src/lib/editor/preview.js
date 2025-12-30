@@ -432,22 +432,45 @@ const previewEvents = EditorView.domEventHandlers({
   // Mousedown triggers a view update which rebuilds decorations
   // This ensures syntax reveals immediately when clicking, not after
   mousedown(event, view) {
-    // Get the position where the click will land
     const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
-    if (pos !== null) {
-      // Move cursor immediately so decorations update before click completes
-      // Use requestAnimationFrame to let the click register first
-      requestAnimationFrame(() => {
-        // Only update if view still exists and position is valid
-        if (view.state.doc.length >= pos) {
+
+    // Handle empty document - position cursor at start
+    if (pos === null) {
+      if (view.state.doc.length === 0) {
+        requestAnimationFrame(() => {
           view.dispatch({
-            selection: { anchor: pos },
+            selection: { anchor: 0 },
             scrollIntoView: false,
           });
-        }
-      });
+        });
+      }
+      return false;
     }
-    return false; // Don't prevent default - let normal click handling continue
+
+    // Capture shift state now since event may change by requestAnimationFrame
+    const isShiftClick = event.shiftKey;
+    const currentAnchor = view.state.selection.main.anchor;
+
+    // Use requestAnimationFrame to let the click register first
+    requestAnimationFrame(() => {
+      if (view.state.doc.length < pos) return;
+
+      if (isShiftClick) {
+        // Extend selection from current anchor to clicked position
+        view.dispatch({
+          selection: { anchor: currentAnchor, head: pos },
+          scrollIntoView: false,
+        });
+      } else {
+        // Normal click - set cursor position for expand-on-focus
+        view.dispatch({
+          selection: { anchor: pos },
+          scrollIntoView: false,
+        });
+      }
+    });
+
+    return false;
   },
   click(event, view) {
     const linkTarget = event.target.closest?.("[data-href]");

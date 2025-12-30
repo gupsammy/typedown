@@ -44,7 +44,7 @@
 
   /* Sizing */
   --content-width: 680px;
-  --content-padding: 72px;
+  --content-padding: 100px;
   --line-height: 1.7;
   --header-height: 52px;
 
@@ -267,28 +267,6 @@ a {
   position: relative;
   display: flex;
   justify-content: center;
-}
-
-/* Empty state - subtle, artistic hint */
-.empty-state {
-  position: absolute;
-  top: var(--content-padding);
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 0 24px;
-  pointer-events: none;
-  max-width: var(--content-width);
-  width: 100%;
-}
-
-.empty-state-hint {
-  font-family: var(--font-serif);
-  font-size: 1.05rem;
-  font-style: italic;
-  color: var(--ink-ghost);
-  margin: 0;
-  opacity: 0.6;
-  animation: fadeIn 0.8s ease;
 }
 
 /* ============================================

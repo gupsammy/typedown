@@ -573,15 +573,15 @@
 
   <!-- Editor Area -->
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <section class="editor-shell" on:click={() => view?.focus()}>
+  <section class="editor-shell" on:click={(e) => {
+    if (!view) return;
+    view.focus();
+    // Position cursor at start for empty documents
+    if (view.state.doc.length === 0) {
+      view.dispatch({ selection: { anchor: 0 } });
+    }
+  }}>
     <div class="editor-container">
-      <!-- Empty State - subtle hint, doesn't block clicks -->
-      {#if isEmpty}
-        <div class="empty-state">
-          <p class="empty-state-hint">Start writing...</p>
-        </div>
-      {/if}
-
       <!-- CodeMirror Editor -->
       <div class="editor" bind:this={editorEl}></div>
     </div>
