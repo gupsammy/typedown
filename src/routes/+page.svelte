@@ -62,7 +62,8 @@
     tabs = tabs.map((tab) => (tab.id === id ? updater(tab) : tab));
   };
 
-  const createTab = ({ title, content, path, id, selection, dirty }) => {
+  /** @param {{ title?: string, content?: string, path?: string|null, id?: string, selection?: {anchor: number, head: number}, dirty?: boolean }} options */
+  const createTab = ({ title, content, path, id, selection, dirty } = {}) => {
     tabCounter += 1;
     const safeTitle = title || `Untitled ${tabCounter}`;
     return {
@@ -233,12 +234,7 @@
     });
     if (!selected) return;
     const filePath = Array.isArray(selected) ? selected[0] : selected;
-    let content = "";
-    try {
-      content = await readTextFile(filePath);
-    } catch (error) {
-      content = await readTextFile({ path: filePath });
-    }
+    const content = await readTextFile(filePath);
     const tab = createTab({ title: baseName(filePath), content, path: filePath });
     tabs = [...tabs, tab];
     selectTab(tab.id);
@@ -257,11 +253,7 @@
       });
       if (!targetPath) return;
     }
-    try {
-      await writeTextFile(targetPath, tab.content);
-    } catch (error) {
-      await writeTextFile({ path: targetPath, contents: tab.content });
-    }
+    await writeTextFile(targetPath, tab.content);
     // Delete draft if this was an untitled tab that now has a path
     if (wasUntitled) {
       await deleteDraft(tab.id);
@@ -432,22 +424,35 @@
     return true;
   };
 
-  onMount(async () => {
-    // Restore drafts from previous session
-    const drafts = await loadAllDrafts();
-    if (drafts.length > 0) {
-      tabs = drafts.map((draft) =>
-        createTab({
-          id: draft.tabId,
-          title: draft.title,
-          content: draft.content,
-          path: null,
-          selection: draft.selection,
-          dirty: true, // Restored drafts are unsaved
-        })
-      );
-      activeTabId = tabs[0].id;
-    } else if (!tabs.length) {
+  onMount(() => {
+    // Restore drafts from previous session (async, but we don't await in onMount)
+    loadAllDrafts().then((drafts) => {
+      if (drafts.length > 0) {
+        tabs = drafts.map((draft) =>
+          createTab({
+            id: draft.tabId,
+            title: draft.title,
+            content: draft.content,
+            path: null,
+            selection: draft.selection,
+            dirty: true, // Restored drafts are unsaved
+          })
+        );
+        activeTabId = tabs[0].id;
+        // Reload the editor content with restored draft
+        if (view && tabs[0]) {
+          suppressChange = true;
+          view.dispatch({
+            changes: { from: 0, to: view.state.doc.length, insert: tabs[0].content },
+            annotations: Transaction.addToHistory.of(false),
+          });
+          suppressChange = false;
+        }
+      }
+    });
+
+    // Initialize tabs if empty
+    if (!tabs.length) {
       const tab = createTab({});
       tabs = [tab];
       activeTabId = tab.id;

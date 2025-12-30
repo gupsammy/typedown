@@ -237,6 +237,7 @@ function addInlineDecorations(decos, base, text, selection, occupied) {
   }
 }
 
+/** @returns {import("@codemirror/view").DecorationSet} */
 function buildDecorations(view) {
   const { doc, selection } = view.state;
   let inCodeBlock = false;
@@ -404,6 +405,7 @@ function buildDecorations(view) {
   });
 
   // Build the final decoration set
+  /** @type {RangeSetBuilder<Decoration>} */
   const builder = new RangeSetBuilder();
   for (const { from, to, deco } of allDecos) {
     builder.add(from, to, deco);
@@ -414,6 +416,8 @@ function buildDecorations(view) {
 
 const previewPlugin = ViewPlugin.fromClass(
   class {
+    /** @type {import("@codemirror/view").DecorationSet} */
+    decorations;
     constructor(view) {
       this.decorations = buildDecorations(view);
     }
@@ -473,7 +477,8 @@ const previewEvents = EditorView.domEventHandlers({
     return false;
   },
   click(event, view) {
-    const linkTarget = event.target.closest?.("[data-href]");
+    const target = /** @type {HTMLElement|null} */ (event.target);
+    const linkTarget = target?.closest?.("[data-href]");
     if (linkTarget) {
       const href = linkTarget.getAttribute("data-href");
       if (href && (event.metaKey || event.ctrlKey)) {
@@ -483,7 +488,7 @@ const previewEvents = EditorView.domEventHandlers({
       return false;
     }
 
-    const taskTarget = event.target.closest?.("[data-task-from]");
+    const taskTarget = target?.closest?.("[data-task-from]");
     if (taskTarget) {
       const from = Number(taskTarget.getAttribute("data-task-from"));
       const to = Number(taskTarget.getAttribute("data-task-to"));
