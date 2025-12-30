@@ -1,77 +1,73 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+TypeDown is a Typora-inspired markdown editor that renders markdown as you type (WYSIWYG) while maintaining the ability to toggle into raw source mode. Built with Tauri 2 + Svelte 5 + CodeMirror 6.
 
-## Project Overview
+## Package Manager
 
-TypeDown is a Typora-inspired markdown editor that renders markdown as you type (WYSIWYG) while maintaining the ability to toggle into raw source mode. Built with Tauri + Svelte + CodeMirror 6.
+Use `npm` for all dependency management.
 
 ## Development Commands
 
 ```bash
-npm run dev          # Start Vite dev server (port 1420)
-npm run tauri dev    # Run full desktop app with hot reload
-npm run tauri build  # Create distributable desktop app
-npm run check        # Run svelte-check type validation
+npm run dev          # Vite dev server (port 1420)
+npm run tauri dev    # Full desktop app with hot reload
+npm run tauri build  # Create distributable
+npm run check        # Svelte type validation
 ```
 
-## Architecture
+## Project Structure
 
-### Tech Stack
+```
+src/
+  routes/+page.svelte    # Main editor: CodeMirror init, tabs, file I/O, shortcuts
+  lib/editor/preview.js  # Decoration engine: widgets, expand-on-focus
+  app.css                # Global styles, CSS variables
+src-tauri/
+  src/lib.rs             # Tauri app with dialog, fs, opener plugins
+  tauri.conf.json        # Window/bundle config
+.docs/
+  SPEC.md                # Product spec with feature roadmap
+```
 
-| Layer | Technology |
-|-------|------------|
-| Desktop Runtime | Tauri 2 |
-| Frontend | Svelte 5 + SvelteKit 2.9 |
-| Editor Core | CodeMirror 6 |
-| Styling | CSS with custom properties |
+## CodeMirror Decoration Patterns
 
-### Key Files
+The editor uses CodeMirror 6 decorations for live preview rendering.
 
-**Frontend:**
-- `src/routes/+page.svelte` - Main editor component: CodeMirror initialization, tab management, file I/O, keyboard shortcuts, word/character count
-- `src/lib/editor/preview.js` - Preview rendering engine: decoration-based markdown rendering, widgets (images, checkboxes, links, HR), expand-on-focus behavior
-- `src/app.css` - Global styles and CSS variables
+**Decoration types:**
+- `Decoration.replace({ widget })` - Hide syntax by replacing with widget (`#`, `**`, backticks, link syntax)
+- `Decoration.widget` - Insert rendered elements (images, checkboxes, HR)
+- `Decoration.mark` - Apply styling classes without hiding (bold, italic styling)
+- `Decoration.line` - Apply classes to entire lines (headings, code blocks)
 
-**Desktop (Rust):**
-- `src-tauri/src/lib.rs` - Tauri app initialization with dialog, filesystem, and opener plugins
-- `src-tauri/tauri.conf.json` - Window configuration, bundle settings
+**Cursor positioning:**
+When hiding markdown syntax, use `Decoration.replace` with `ZeroWidthWidget` (renders `\u200B` zero-width space). NEVER use `font-size: 0` or `display: none` on mark decorations - this breaks CodeMirror's `posAtCoords` and causes cursor misalignment.
 
-**Documentation:**
-- `.docs/SPEC.md` - Full product specification with phased feature roadmap
+**Expand-on-focus:**
+`selectionIntersects()` checks if cursor is within a decorated range. When true, decorations are skipped so raw syntax becomes visible. For code blocks, the entire block range is tracked so fence markers show when cursor is anywhere inside.
 
-### CodeMirror Decoration System
+## Key Implementation Details
 
-The editor uses CodeMirror 6's decoration system for live preview rendering:
+**Keyboard shortcut priority:** Custom shortcuts must come BEFORE `defaultKeymap` in the keymap array. CodeMirror processes keymaps in order.
 
-- `Decoration.replace` hides markdown syntax (e.g., `**` for bold)
-- `Decoration.widget` inserts rendered elements (images, checkboxes, HR)
-- `Decoration.mark` applies styling classes (bold, italic, code)
-- Selection tracking reveals raw syntax when cursor enters decorated regions (expand-on-focus)
-- Source mode toggle (`Cmd+/`) disables all decorations
+**Tab management:** Tab switching uses `Transaction.addToHistory.of(false)` to prevent content swaps from polluting undo history.
 
-### Tab Management
+**File I/O:** Uses Tauri plugins - `@tauri-apps/plugin-dialog` for pickers, `@tauri-apps/plugin-fs` for read/write, `@tauri-apps/plugin-opener` for external links.
 
-Tabs are tracked with reactive state containing content, file paths, dirty flags, and cursor positions. Tab switching preserves editor state via `EditorState.toJSON()` / `EditorState.fromJSON()`.
-
-### File I/O
-
-Uses Tauri plugins for native file system access:
-- `@tauri-apps/plugin-dialog` for file pickers
-- `@tauri-apps/plugin-fs` for read/write operations
-- `@tauri-apps/plugin-opener` for opening links in browser
-
-## CSS Variables
-
-The theme uses these key CSS variables in `app.css`:
+## Design System
 
 ```css
---paper: #FAFAF8;       /* Background */
---ink: #2C2C2C;         /* Text color */
---teal: #2D7D7D;        /* Accent color */
---ink-ghost: #8B8B8B;   /* Muted text */
+/* Core colors */
+--surface-0: #FAFAF8;      /* Background */
+--ink-primary: #1C1C1A;    /* Text */
+--accent: #2D7D7D;         /* Teal accent */
+--ink-tertiary: #8A8984;   /* Muted text */
+
+/* Typography */
+--font-serif: 'Newsreader', Georgia, serif;
+--font-sans: 'DM Sans', system-ui, sans-serif;
+--font-mono: 'JetBrains Mono', 'SF Mono', monospace;
 ```
 
-## Current Implementation Status
+## Current Status
 
-Phase 1 (MVP) is implemented with core editing features. See `.docs/SPEC.md` for full feature roadmap including Phase 2 (tables, theming, smart paste) and Phase 3 (math, diagrams, TOC).
+Phase 1 (MVP) complete. See `.docs/SPEC.md` for Phase 2 (tables, theming) and Phase 3 (math, diagrams) roadmap.
