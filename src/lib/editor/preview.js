@@ -2,9 +2,14 @@ import { RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, WidgetType } from "@codemirror/view";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
-class EmptyWidget extends WidgetType {
+// ZeroWidthWidget: Uses zero-width space to maintain text flow while being invisible
+// This fixes cursor positioning issues that occurred with font-size:0 CSS approach
+class ZeroWidthWidget extends WidgetType {
   toDOM() {
-    return document.createTextNode("");
+    const span = document.createElement("span");
+    span.className = "td-zero-width";
+    span.textContent = "\u200B"; // Zero-width space - invisible but maintains text flow
+    return span;
   }
   eq() {
     return true;
@@ -103,7 +108,7 @@ class CheckboxWidget extends WidgetType {
   }
 }
 
-const emptyWidget = new EmptyWidget();
+const zeroWidthWidget = new ZeroWidthWidget();
 
 const headingRe = /^(#{1,6})\s+/;
 const hrRe = /^(\*{3,}|-{3,}|_{3,})\s*$/;
@@ -143,8 +148,8 @@ function addInlineDecorations(decos, base, text, selection, occupied) {
     occupied.push([start, end]);
     const contentStart = start + 1;
     const contentEnd = end - 1;
-    decos.push({ from: start, to: start + 1, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
-    decos.push({ from: end - 1, to: end, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
+    decos.push({ from: start, to: start + 1, deco: Decoration.replace({ widget: zeroWidthWidget }) });
+    decos.push({ from: end - 1, to: end, deco: Decoration.replace({ widget: zeroWidthWidget }) });
     decos.push({ from: contentStart, to: contentEnd, deco: Decoration.mark({ class: "td-inline-code" }) });
   }
 
@@ -173,7 +178,7 @@ function addInlineDecorations(decos, base, text, selection, occupied) {
       // Empty link text: handle anchor links and external links differently
       if (url.startsWith("#")) {
         // Anchor link [](#anchor) - hide completely
-        decos.push({ from: start, to: end, deco: Decoration.replace({ widget: emptyWidget }) });
+        decos.push({ from: start, to: end, deco: Decoration.replace({ widget: zeroWidthWidget }) });
       } else {
         // External link with no text [](url) - show URL as clickable text
         const displayUrl = url.replace(/^https?:\/\//, "");
@@ -187,8 +192,8 @@ function addInlineDecorations(decos, base, text, selection, occupied) {
       // Normal link with label
       const labelStart = start + 1;
       const labelEnd = labelStart + label.length;
-      decos.push({ from: start, to: start + 1, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
-      decos.push({ from: labelEnd, to: end, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
+      decos.push({ from: start, to: start + 1, deco: Decoration.replace({ widget: zeroWidthWidget }) });
+      decos.push({ from: labelEnd, to: end, deco: Decoration.replace({ widget: zeroWidthWidget }) });
       decos.push({ from: labelStart, to: labelEnd, deco: Decoration.mark({ class: "td-link", attributes: { "data-href": url, title: url } }) });
     }
   }
@@ -199,8 +204,8 @@ function addInlineDecorations(decos, base, text, selection, occupied) {
     const end = start + match[0].length;
     if (shouldSkip(start, end)) continue;
     occupied.push([start, end]);
-    decos.push({ from: start, to: start + 2, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
-    decos.push({ from: end - 2, to: end, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
+    decos.push({ from: start, to: start + 2, deco: Decoration.replace({ widget: zeroWidthWidget }) });
+    decos.push({ from: end - 2, to: end, deco: Decoration.replace({ widget: zeroWidthWidget }) });
     decos.push({ from: start + 2, to: end - 2, deco: Decoration.mark({ class: "td-strong" }) });
   }
 
@@ -210,8 +215,8 @@ function addInlineDecorations(decos, base, text, selection, occupied) {
     const end = start + match[0].length;
     if (shouldSkip(start, end)) continue;
     occupied.push([start, end]);
-    decos.push({ from: start, to: start + 2, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
-    decos.push({ from: end - 2, to: end, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
+    decos.push({ from: start, to: start + 2, deco: Decoration.replace({ widget: zeroWidthWidget }) });
+    decos.push({ from: end - 2, to: end, deco: Decoration.replace({ widget: zeroWidthWidget }) });
     decos.push({ from: start + 2, to: end - 2, deco: Decoration.mark({ class: "td-strike" }) });
   }
 
@@ -221,8 +226,8 @@ function addInlineDecorations(decos, base, text, selection, occupied) {
     const end = start + match[0].length;
     if (shouldSkip(start, end)) continue;
     occupied.push([start, end]);
-    decos.push({ from: start, to: start + 1, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
-    decos.push({ from: end - 1, to: end, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
+    decos.push({ from: start, to: start + 1, deco: Decoration.replace({ widget: zeroWidthWidget }) });
+    decos.push({ from: end - 1, to: end, deco: Decoration.replace({ widget: zeroWidthWidget }) });
     decos.push({ from: start + 1, to: end - 1, deco: Decoration.mark({ class: "td-em" }) });
   }
 }
@@ -230,6 +235,21 @@ function addInlineDecorations(decos, base, text, selection, occupied) {
 function buildDecorations(view) {
   const { doc, selection } = view.state;
   let inCodeBlock = false;
+
+  // First pass: collect code block ranges for expand-on-focus
+  const codeBlockRanges = [];
+  let blockStart = null;
+  for (let lineNumber = 1; lineNumber <= doc.lines; lineNumber++) {
+    const line = doc.line(lineNumber);
+    if (fenceRe.test(line.text)) {
+      if (blockStart === null) {
+        blockStart = line.from; // Opening fence
+      } else {
+        codeBlockRanges.push([blockStart, line.to]); // Complete block
+        blockStart = null;
+      }
+    }
+  }
 
   // Collect all decorations first, then sort and add
   const lineDecos = []; // Line decorations (added at position 0 of line)
@@ -244,9 +264,23 @@ function buildDecorations(view) {
     let inlineStart = 0;
 
     if (fenceRe.test(text)) {
-      lineDecos.push({ from: lineFrom, deco: Decoration.line({ class: "td-code-fence-line" }) });
-      // Always apply mark decoration for syntax - CSS will handle visibility
-      rangeDecos.push({ from: lineFrom, to: lineTo, deco: Decoration.mark({ class: "td-fence-syntax" }) });
+      // Find the code block range that contains this fence
+      const blockRange = codeBlockRanges.find(([start, end]) =>
+        lineFrom >= start && lineTo <= end
+      );
+
+      const cursorInBlock = blockRange &&
+        selectionIntersects(selection, blockRange[0], blockRange[1]);
+
+      if (cursorInBlock) {
+        // Show fence with visible styling when cursor is in the code block
+        lineDecos.push({ from: lineFrom, deco: Decoration.line({ class: "td-code-fence-line td-fence-editing" }) });
+        rangeDecos.push({ from: lineFrom, to: lineTo, deco: Decoration.mark({ class: "td-fence-syntax" }) });
+      } else {
+        // Collapse fence to minimal height - use mark decoration to preserve coordinates
+        lineDecos.push({ from: lineFrom, deco: Decoration.line({ class: "td-code-fence-line" }) });
+        rangeDecos.push({ from: lineFrom, to: lineTo, deco: Decoration.mark({ class: "td-fence-collapsed" }) });
+      }
       inCodeBlock = !inCodeBlock;
       continue;
     }
@@ -272,7 +306,7 @@ function buildDecorations(view) {
       inlineStart = headingMatch[0].length;
       lineDecos.push({ from: lineFrom, deco: Decoration.line({ class: `td-heading-line td-h${level}` }) });
       if (!selectionIntersects(selection, lineFrom, lineFrom + inlineStart)) {
-        rangeDecos.push({ from: lineFrom, to: lineFrom + inlineStart, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
+        rangeDecos.push({ from: lineFrom, to: lineFrom + inlineStart, deco: Decoration.replace({ widget: zeroWidthWidget }) });
       }
     }
 
@@ -282,7 +316,7 @@ function buildDecorations(view) {
       inlineStart = Math.max(inlineStart, markerLength);
       lineDecos.push({ from: lineFrom, deco: Decoration.line({ class: "td-blockquote-line" }) });
       if (!selectionIntersects(selection, lineFrom, lineFrom + markerLength)) {
-        rangeDecos.push({ from: lineFrom, to: lineFrom + markerLength, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
+        rangeDecos.push({ from: lineFrom, to: lineFrom + markerLength, deco: Decoration.replace({ widget: zeroWidthWidget }) });
       }
     }
 

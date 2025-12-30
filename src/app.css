@@ -443,6 +443,9 @@ a {
 }
 
 /* Headings */
+/* IMPORTANT: Use line-height instead of margin/padding for spacing.
+   Margin/padding on .cm-line elements breaks CodeMirror's coordinate mapping,
+   causing cursor positioning issues when clicking on decorated lines. */
 .td-heading-line {
   font-family: var(--font-serif);
   color: var(--heading-color);
@@ -452,26 +455,22 @@ a {
 
 .td-h1 {
   font-size: 2.2rem;
-  margin-top: 2rem;
-  margin-bottom: 0.75rem;
+  line-height: 2.8;
 }
 
 .td-h2 {
   font-size: 1.75rem;
-  margin-top: 1.75rem;
-  margin-bottom: 0.6rem;
+  line-height: 2.5;
 }
 
 .td-h3 {
   font-size: 1.4rem;
-  margin-top: 1.5rem;
-  margin-bottom: 0.5rem;
+  line-height: 2.3;
 }
 
 .td-h4 {
   font-size: 1.15rem;
-  margin-top: 1.25rem;
-  margin-bottom: 0.4rem;
+  line-height: 2.2;
 }
 
 .td-h5 {
@@ -479,7 +478,7 @@ a {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  margin-top: 1rem;
+  line-height: 2.1;
 }
 
 .td-h6 {
@@ -488,6 +487,7 @@ a {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--ink-secondary);
+  line-height: 2;
 }
 
 /* Block elements */
@@ -607,34 +607,33 @@ a {
   margin: 2rem 0;
 }
 
-/* Syntax hiding - preserves whitespace while hiding markdown syntax */
-.td-syntax-hidden {
-  font-size: 0;
-  letter-spacing: -1px;
-  color: transparent;
+/* Zero-width widget for hidden syntax - uses zero-width space character */
+/* This approach fixes cursor positioning issues that occurred with font-size:0 */
+.td-zero-width {
+  /* Zero-width space is naturally invisible, minimal CSS needed */
   user-select: none;
 }
 
-/* Code fence lines - hide when not editing */
+/* Code fence lines - normal height, content visibility controlled by class */
 .cm-line.td-code-fence-line {
-  height: 0;
-  overflow: hidden;
-  line-height: 0;
-  padding: 0 !important;
-  margin: 0;
+  /* Keep normal line height for proper cursor positioning and navigation */
 }
 
-.cm-line.td-code-fence-line.cm-activeLine {
-  height: auto;
-  overflow: visible;
-  line-height: inherit;
-  padding: inherit !important;
+/* Collapsed fence content - shows a subtle marker */
+.td-fence-collapsed {
+  opacity: 0.3;
+  color: var(--ink-ghost);
+}
+
+/* Expanded fence lines when editing - more visible */
+.cm-line.td-code-fence-line.td-fence-editing {
+  /* Normal styling */
 }
 
 .td-fence-syntax {
-  opacity: 0.4;
+  opacity: 0.7;
   font-size: 0.85em;
-  color: var(--ink-ghost);
+  color: var(--ink);
 }
 
 /* Horizontal rule syntax when editing */

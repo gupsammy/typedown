@@ -1,10 +1,9 @@
 <script>
   import { onDestroy, onMount } from "svelte";
-  import { EditorState, EditorSelection, Compartment } from "@codemirror/state";
-  import { EditorView, keymap } from "@codemirror/view";
+  import { EditorState, EditorSelection, Compartment, Transaction } from "@codemirror/state";
+  import { EditorView, keymap, drawSelection } from "@codemirror/view";
   import { markdown } from "@codemirror/lang-markdown";
-  import { history } from "@codemirror/history";
-  import { defaultKeymap, historyKeymap, indentWithTab } from "@codemirror/commands";
+  import { defaultKeymap, historyKeymap, indentWithTab, history } from "@codemirror/commands";
   import {
     searchKeymap,
     openSearchPanel,
@@ -78,6 +77,7 @@
       view.dispatch({
         changes: { from: 0, to: currentLength, insert: nextDoc },
         selection,
+        annotations: Transaction.addToHistory.of(false),
       });
       updateStatus(view.state);
       suppressChange = false;
@@ -470,6 +470,7 @@
       doc: getActiveTab()?.content ?? "",
       extensions: [
         history(),
+        drawSelection(),
         EditorView.lineWrapping,
         markdown(),
         syntaxHighlighting(sourceHighlight),
