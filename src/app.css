@@ -500,20 +500,27 @@ a {
 }
 
 .cm-line.td-code-line {
-  background: var(--code-bg);
   font-family: var(--font-mono);
-  font-size: 0.9rem;
   border-radius: 0;
+  position: relative;
 }
 
-.cm-line.td-code-line:first-of-type {
+/* Use pseudo-element for background so it doesn't cover selection layer (z-index: -2) */
+.cm-line.td-code-line::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--code-bg);
+  z-index: -3;
+  pointer-events: none;
+}
+
+.cm-line.td-code-line:first-of-type::before {
   border-radius: 8px 8px 0 0;
-  padding-top: 12px;
 }
 
-.cm-line.td-code-line:last-of-type {
+.cm-line.td-code-line:last-of-type::before {
   border-radius: 0 0 8px 8px;
-  padding-bottom: 12px;
 }
 
 /* Inline elements */
