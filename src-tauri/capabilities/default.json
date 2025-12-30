@@ -8,6 +8,9 @@
     "core:window:allow-start-dragging",
     "dialog:default",
     "fs:default",
-    "opener:default"
+    "fs:allow-appdata-read-recursive",
+    "fs:allow-appdata-write-recursive",
+    "opener:default",
+    "core:path:default"
   ]
 }

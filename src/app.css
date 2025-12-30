@@ -727,3 +727,82 @@ button:focus-visible {
   outline: none;
   box-shadow: var(--shadow-focus);
 }
+
+/* ============================================
+   Confirmation Modal
+   ============================================ */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 28, 26, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn var(--duration-fast) ease;
+}
+
+.modal {
+  background: var(--surface-0);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+  animation: slideUp var(--duration-base) var(--ease-out-expo);
+}
+
+.modal-title {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink-primary);
+  margin: 0 0 8px 0;
+}
+
+.modal-message {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  color: var(--ink-secondary);
+  line-height: 1.5;
+  margin: 0 0 20px 0;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.modal-btn {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--duration-fast) ease;
+}
+
+.modal-btn.primary {
+  background: var(--accent);
+  color: white;
+  border: none;
+}
+
+.modal-btn.primary:hover {
+  background: #267070;
+}
+
+.modal-btn.secondary {
+  background: var(--surface-1);
+  color: var(--ink-secondary);
+  border: 1px solid var(--surface-3);
+}
+
+.modal-btn.secondary:hover {
+  background: var(--surface-2);
+  color: var(--ink-primary);
+}

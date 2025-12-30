@@ -14,7 +14,13 @@
   import { previewExtension } from "$lib/editor/preview";
   import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
   import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
-  import { getCurrentWindow } from "@tauri-apps/api/window";
+  import { saveDraft, deleteDraft, loadAllDrafts } from "$lib/drafts";
+
+  const startWindowDrag = () => {
+    import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
+      getCurrentWindow().startDragging();
+    });
+  };
 
   let editorEl;
   let view;
@@ -29,6 +35,14 @@
   let charCount = 0;
   let cursorLine = 1;
   let cursorColumn = 1;
+
+  // Confirmation modal state
+  let showCloseConfirm = false;
+  let pendingCloseTabId = null;
+
+  // Auto-save timer
+  let autoSaveTimer = null;
+  const AUTO_SAVE_DELAY = 5000;
 
   const previewCompartment = new Compartment();
 
@@ -48,17 +62,17 @@
     tabs = tabs.map((tab) => (tab.id === id ? updater(tab) : tab));
   };
 
-  const createTab = ({ title, content, path }) => {
+  const createTab = ({ title, content, path, id, selection, dirty }) => {
     tabCounter += 1;
     const safeTitle = title || `Untitled ${tabCounter}`;
     return {
-      id: `tab-${Date.now()}-${tabCounter}`,
+      id: id || `tab-${Date.now()}-${tabCounter}`,
       title: safeTitle,
       content: content || "",
       path: path || null,
       savedContent: content || "",
-      dirty: false,
-      selection: { anchor: 0, head: 0 },
+      dirty: dirty ?? false,
+      selection: selection || { anchor: 0, head: 0 },
     };
   };
 
@@ -91,20 +105,66 @@
     selectTab(tab.id);
   };
 
-  const closeTab = (id) => {
+  const requestCloseTab = (id) => {
+    const tab = tabs.find((t) => t.id === id);
+    if (tab?.dirty) {
+      pendingCloseTabId = id;
+      showCloseConfirm = true;
+    } else {
+      performCloseTab(id);
+    }
+  };
+
+  const performCloseTab = async (id) => {
+    const tab = tabs.find((t) => t.id === id);
+
+    // Clean up draft if this was an untitled tab
+    if (tab && !tab.path) {
+      await deleteDraft(id);
+    }
+
     if (tabs.length === 1) {
       tabs = [createTab({})];
       activeTabId = tabs[0].id;
       selectTab(activeTabId);
       return;
     }
-    const remaining = tabs.filter((tab) => tab.id !== id);
+    const remaining = tabs.filter((t) => t.id !== id);
     const wasActive = id === activeTabId;
     tabs = remaining;
     if (wasActive) {
       activeTabId = remaining[0]?.id ?? "";
       selectTab(activeTabId);
     }
+  };
+
+  const handleConfirmSave = async () => {
+    if (pendingCloseTabId) {
+      const tab = tabs.find((t) => t.id === pendingCloseTabId);
+      if (tab) {
+        // Switch to this tab to save it
+        if (activeTabId !== pendingCloseTabId) {
+          selectTab(pendingCloseTabId);
+        }
+        await saveFile();
+        await performCloseTab(pendingCloseTabId);
+      }
+    }
+    showCloseConfirm = false;
+    pendingCloseTabId = null;
+  };
+
+  const handleConfirmDiscard = async () => {
+    if (pendingCloseTabId) {
+      await performCloseTab(pendingCloseTabId);
+    }
+    showCloseConfirm = false;
+    pendingCloseTabId = null;
+  };
+
+  const handleConfirmCancel = () => {
+    showCloseConfirm = false;
+    pendingCloseTabId = null;
   };
 
   const togglePreview = () => {
@@ -127,19 +187,37 @@
     cursorColumn = head - line.from + 1;
   };
 
+  const scheduleAutoSave = () => {
+    if (autoSaveTimer) {
+      clearTimeout(autoSaveTimer);
+    }
+    autoSaveTimer = setTimeout(async () => {
+      const tab = getActiveTab();
+      // Only auto-save untitled tabs (tabs with path are manually saved)
+      if (tab && !tab.path && tab.dirty) {
+        await saveDraft(tab);
+      }
+    }, AUTO_SAVE_DELAY);
+  };
+
   const updateActiveFromState = (state) => {
     const tab = getActiveTab();
     if (!tab) return;
     const text = state.doc.toString();
+    const isDirty = text !== tab.savedContent;
     updateTab(tab.id, (current) => ({
       ...current,
       content: text,
-      dirty: text !== current.savedContent,
+      dirty: isDirty,
       selection: {
         anchor: state.selection.main.anchor,
         head: state.selection.main.head,
       },
     }));
+    // Schedule auto-save for untitled tabs when content changes
+    if (isDirty && !tab.path) {
+      scheduleAutoSave();
+    }
   };
 
   const baseName = (path) => {
@@ -169,6 +247,7 @@
   const saveFile = async () => {
     const tab = getActiveTab();
     if (!tab) return;
+    const wasUntitled = !tab.path;
     let targetPath = tab.path;
     if (!targetPath) {
       const suggested = tab.title.endsWith(".md") ? tab.title : `${tab.title}.md`;
@@ -182,6 +261,10 @@
       await writeTextFile(targetPath, tab.content);
     } catch (error) {
       await writeTextFile({ path: targetPath, contents: tab.content });
+    }
+    // Delete draft if this was an untitled tab that now has a path
+    if (wasUntitled) {
+      await deleteDraft(tab.id);
     }
     updateTab(tab.id, (current) => ({
       ...current,
@@ -349,8 +432,22 @@
     return true;
   };
 
-  onMount(() => {
-    if (!tabs.length) {
+  onMount(async () => {
+    // Restore drafts from previous session
+    const drafts = await loadAllDrafts();
+    if (drafts.length > 0) {
+      tabs = drafts.map((draft) =>
+        createTab({
+          id: draft.tabId,
+          title: draft.title,
+          content: draft.content,
+          path: null,
+          selection: draft.selection,
+          dirty: true, // Restored drafts are unsaved
+        })
+      );
+      activeTabId = tabs[0].id;
+    } else if (!tabs.length) {
       const tab = createTab({});
       tabs = [tab];
       activeTabId = tab.id;
@@ -436,7 +533,7 @@
       {
         key: "Mod-w",
         run: () => {
-          closeTab(activeTabId);
+          requestCloseTab(activeTabId);
           return true;
         },
       },
@@ -495,7 +592,7 @@
         newTab();
       } else if (event.key === "w") {
         event.preventDefault();
-        closeTab(activeTabId);
+        requestCloseTab(activeTabId);
       }
     };
 
@@ -503,6 +600,7 @@
 
     return () => {
       window.removeEventListener("keydown", handleGlobalKeys);
+      if (autoSaveTimer) clearTimeout(autoSaveTimer);
     };
   });
 
@@ -535,8 +633,8 @@
             class="tab-close"
             role="button"
             tabindex="-1"
-            on:click|stopPropagation={() => closeTab(tab.id)}
-            on:keydown|stopPropagation={(e) => e.key === 'Enter' && closeTab(tab.id)}
+            on:click|stopPropagation={() => requestCloseTab(tab.id)}
+            on:keydown|stopPropagation={(e) => e.key === 'Enter' && requestCloseTab(tab.id)}
           >×</span>
         </button>
       {/each}
@@ -544,7 +642,8 @@
     </nav>
 
     <!-- Drag region spacer -->
-    <div class="drag-region" on:mousedown={() => getCurrentWindow().startDragging()}></div>
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="drag-region" role="presentation" on:mousedown={startWindowDrag}></div>
 
     <!-- Minimal actions on the right -->
     <div class="header-actions">
@@ -621,4 +720,29 @@
       </span>
     </div>
   </footer>
+
+  <!-- Close Confirmation Modal -->
+  {#if showCloseConfirm}
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div class="modal-overlay" on:click={handleConfirmCancel}>
+      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+      <div class="modal" on:click|stopPropagation>
+        <h3 class="modal-title">Unsaved Changes</h3>
+        <p class="modal-message">
+          Do you want to save changes to "{tabs.find((t) => t.id === pendingCloseTabId)?.title}" before closing?
+        </p>
+        <div class="modal-actions">
+          <button class="modal-btn secondary" type="button" on:click={handleConfirmDiscard}>
+            Don't Save
+          </button>
+          <button class="modal-btn secondary" type="button" on:click={handleConfirmCancel}>
+            Cancel
+          </button>
+          <button class="modal-btn primary" type="button" on:click={handleConfirmSave}>
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </main>
