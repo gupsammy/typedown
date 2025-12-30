@@ -2,7 +2,14 @@
 
 A minimal, elegant markdown editor inspired by Typora. Write in markdown with live WYSIWYG preview — syntax hides as you type and reveals when you need it.
 
-**[Download for macOS](https://github.com/gupsammy/typedown/releases/latest/download/typedown.dmg)**
+[![Download](https://img.shields.io/github/v/release/gupsammy/typedown?label=Download&style=for-the-badge)](https://github.com/gupsammy/typedown/releases/latest/download/typedown.dmg)
+[![License](https://img.shields.io/github/license/gupsammy/typedown?style=for-the-badge)](LICENSE)
+
+![Tauri](https://img.shields.io/badge/Tauri-2.0-24C8D8?style=flat-square&logo=tauri&logoColor=white)
+![Svelte](https://img.shields.io/badge/Svelte-5-FF3E00?style=flat-square&logo=svelte&logoColor=white)
+![CodeMirror](https://img.shields.io/badge/CodeMirror-6-D30707?style=flat-square)
+
+---
 
 ## Features
 
@@ -17,6 +24,8 @@ A minimal, elegant markdown editor inspired by Typora. Write in markdown with li
 **Keyboard-First** — Full keyboard shortcut support for formatting, navigation, and file operations.
 
 **Native macOS App** — Built with Tauri for a fast, lightweight native experience.
+
+---
 
 ## Development
 
@@ -41,7 +50,7 @@ npm run tauri dev
 npm run tauri build
 ```
 
-Binaries will be in `src-tauri/target/release/bundle/`.
+---
 
 ## License
 
