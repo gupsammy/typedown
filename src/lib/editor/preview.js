@@ -125,10 +125,15 @@ const strongRe = /\*\*([^*\n]+)\*\*/g;
 const strikeRe = /~~([^~\n]+)~~/g;
 const emRe = /\*(?!\*)(\S(?:[^*\n]*\S)?)\*/g;
 
+// Check if cursor/selection is near a range (for expand-on-focus)
+// Uses a gentle proximity zone so syntax reveals before you're inside it
 function selectionIntersects(selection, from, to) {
   const selFrom = selection.main.from;
   const selTo = selection.main.to;
-  return selFrom <= to && selTo >= from;
+  // Expand the check zone by a few characters on each side
+  // This makes syntax reveal as cursor approaches, not just when inside
+  const proximityZone = 1;
+  return selFrom <= to + proximityZone && selTo >= from - proximityZone;
 }
 
 function overlaps(ranges, from, to) {
@@ -305,7 +310,8 @@ function buildDecorations(view) {
       const level = headingMatch[1].length;
       inlineStart = headingMatch[0].length;
       lineDecos.push({ from: lineFrom, deco: Decoration.line({ class: `td-heading-line td-h${level}` }) });
-      if (!selectionIntersects(selection, lineFrom, lineFrom + inlineStart)) {
+      // Reveal heading syntax when cursor is anywhere on the line
+      if (!selectionIntersects(selection, lineFrom, lineTo)) {
         rangeDecos.push({ from: lineFrom, to: lineFrom + inlineStart, deco: Decoration.replace({ widget: zeroWidthWidget }) });
       }
     }
@@ -315,7 +321,8 @@ function buildDecorations(view) {
       const markerLength = blockquoteMatch[0].length;
       inlineStart = Math.max(inlineStart, markerLength);
       lineDecos.push({ from: lineFrom, deco: Decoration.line({ class: "td-blockquote-line" }) });
-      if (!selectionIntersects(selection, lineFrom, lineFrom + markerLength)) {
+      // Reveal blockquote syntax when cursor is anywhere on the line
+      if (!selectionIntersects(selection, lineFrom, lineTo)) {
         rangeDecos.push({ from: lineFrom, to: lineFrom + markerLength, deco: Decoration.replace({ widget: zeroWidthWidget }) });
       }
     }
@@ -330,7 +337,8 @@ function buildDecorations(view) {
       const boxFrom = lineFrom + boxIndex;
       const boxTo = boxFrom + 3;
       inlineStart = Math.max(inlineStart, markerLength);
-      if (!selectionIntersects(selection, markerFrom, markerTo)) {
+      // Reveal task syntax when cursor is anywhere on the line
+      if (!selectionIntersects(selection, lineFrom, lineTo)) {
         rangeDecos.push({
           from: markerFrom,
           to: markerTo,
@@ -346,7 +354,8 @@ function buildDecorations(view) {
         const markerFrom = lineFrom + indentLength;
         const markerTo = lineFrom + markerLength;
         inlineStart = Math.max(inlineStart, markerLength);
-        if (!selectionIntersects(selection, markerFrom, markerTo)) {
+        // Reveal list syntax when cursor is anywhere on the line
+        if (!selectionIntersects(selection, lineFrom, lineTo)) {
           rangeDecos.push({
             from: markerFrom,
             to: markerTo,
@@ -363,7 +372,8 @@ function buildDecorations(view) {
         const markerFrom = lineFrom + indentLength;
         const markerTo = lineFrom + markerLength;
         inlineStart = Math.max(inlineStart, markerLength);
-        if (!selectionIntersects(selection, markerFrom, markerTo)) {
+        // Reveal list syntax when cursor is anywhere on the line
+        if (!selectionIntersects(selection, lineFrom, lineTo)) {
           rangeDecos.push({
             from: markerFrom,
             to: markerTo,
@@ -419,6 +429,26 @@ const previewPlugin = ViewPlugin.fromClass(
 );
 
 const previewEvents = EditorView.domEventHandlers({
+  // Mousedown triggers a view update which rebuilds decorations
+  // This ensures syntax reveals immediately when clicking, not after
+  mousedown(event, view) {
+    // Get the position where the click will land
+    const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+    if (pos !== null) {
+      // Move cursor immediately so decorations update before click completes
+      // Use requestAnimationFrame to let the click register first
+      requestAnimationFrame(() => {
+        // Only update if view still exists and position is valid
+        if (view.state.doc.length >= pos) {
+          view.dispatch({
+            selection: { anchor: pos },
+            scrollIntoView: false,
+          });
+        }
+      });
+    }
+    return false; // Don't prevent default - let normal click handling continue
+  },
   click(event, view) {
     const linkTarget = event.target.closest?.("[data-href]");
     if (linkTarget) {
