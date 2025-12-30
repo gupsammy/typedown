@@ -607,6 +607,42 @@ a {
   margin: 2rem 0;
 }
 
+/* Syntax hiding - preserves whitespace while hiding markdown syntax */
+.td-syntax-hidden {
+  font-size: 0;
+  letter-spacing: -1px;
+  color: transparent;
+  user-select: none;
+}
+
+/* Code fence lines - hide when not editing */
+.cm-line.td-code-fence-line {
+  height: 0;
+  overflow: hidden;
+  line-height: 0;
+  padding: 0 !important;
+  margin: 0;
+}
+
+.cm-line.td-code-fence-line.cm-activeLine {
+  height: auto;
+  overflow: visible;
+  line-height: inherit;
+  padding: inherit !important;
+}
+
+.td-fence-syntax {
+  opacity: 0.4;
+  font-size: 0.85em;
+  color: var(--ink-ghost);
+}
+
+/* Horizontal rule syntax when editing */
+.td-hr-syntax {
+  opacity: 0.4;
+  color: var(--ink-ghost);
+}
+
 /* ============================================
    Status Bar
    ============================================ */

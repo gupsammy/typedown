@@ -115,7 +115,7 @@ const fenceRe = /^```/;
 
 const codeSpanRe = /`([^`\n]+)`/g;
 const imageRe = /!\[([^\]]*)\]\(([^)]+)\)/g;
-const linkRe = /\[([^\]]+)\]\(([^)]+)\)/g;
+const linkRe = /\[([^\]]*)\]\(([^)]+)\)/g;
 const strongRe = /\*\*([^*\n]+)\*\*/g;
 const strikeRe = /~~([^~\n]+)~~/g;
 const emRe = /\*(?!\*)(\S(?:[^*\n]*\S)?)\*/g;
@@ -143,8 +143,8 @@ function addInlineDecorations(decos, base, text, selection, occupied) {
     occupied.push([start, end]);
     const contentStart = start + 1;
     const contentEnd = end - 1;
-    decos.push({ from: start, to: start + 1, deco: Decoration.replace({ widget: emptyWidget }) });
-    decos.push({ from: end - 1, to: end, deco: Decoration.replace({ widget: emptyWidget }) });
+    decos.push({ from: start, to: start + 1, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
+    decos.push({ from: end - 1, to: end, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
     decos.push({ from: contentStart, to: contentEnd, deco: Decoration.mark({ class: "td-inline-code" }) });
   }
 
@@ -168,11 +168,29 @@ function addInlineDecorations(decos, base, text, selection, occupied) {
     occupied.push([start, end]);
     const label = match[1];
     const url = match[2];
-    const labelStart = start + 1;
-    const labelEnd = labelStart + label.length;
-    decos.push({ from: start, to: start + 1, deco: Decoration.replace({ widget: emptyWidget }) });
-    decos.push({ from: labelEnd, to: end, deco: Decoration.replace({ widget: emptyWidget }) });
-    decos.push({ from: labelStart, to: labelEnd, deco: Decoration.mark({ class: "td-link", attributes: { "data-href": url, title: url } }) });
+
+    if (label.length === 0) {
+      // Empty link text: handle anchor links and external links differently
+      if (url.startsWith("#")) {
+        // Anchor link [](#anchor) - hide completely
+        decos.push({ from: start, to: end, deco: Decoration.replace({ widget: emptyWidget }) });
+      } else {
+        // External link with no text [](url) - show URL as clickable text
+        const displayUrl = url.replace(/^https?:\/\//, "");
+        decos.push({
+          from: start,
+          to: end,
+          deco: Decoration.replace({ widget: new TextWidget(displayUrl, "td-link") }),
+        });
+      }
+    } else {
+      // Normal link with label
+      const labelStart = start + 1;
+      const labelEnd = labelStart + label.length;
+      decos.push({ from: start, to: start + 1, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
+      decos.push({ from: labelEnd, to: end, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
+      decos.push({ from: labelStart, to: labelEnd, deco: Decoration.mark({ class: "td-link", attributes: { "data-href": url, title: url } }) });
+    }
   }
 
   // Strong (bold)
@@ -181,8 +199,8 @@ function addInlineDecorations(decos, base, text, selection, occupied) {
     const end = start + match[0].length;
     if (shouldSkip(start, end)) continue;
     occupied.push([start, end]);
-    decos.push({ from: start, to: start + 2, deco: Decoration.replace({ widget: emptyWidget }) });
-    decos.push({ from: end - 2, to: end, deco: Decoration.replace({ widget: emptyWidget }) });
+    decos.push({ from: start, to: start + 2, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
+    decos.push({ from: end - 2, to: end, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
     decos.push({ from: start + 2, to: end - 2, deco: Decoration.mark({ class: "td-strong" }) });
   }
 
@@ -192,8 +210,8 @@ function addInlineDecorations(decos, base, text, selection, occupied) {
     const end = start + match[0].length;
     if (shouldSkip(start, end)) continue;
     occupied.push([start, end]);
-    decos.push({ from: start, to: start + 2, deco: Decoration.replace({ widget: emptyWidget }) });
-    decos.push({ from: end - 2, to: end, deco: Decoration.replace({ widget: emptyWidget }) });
+    decos.push({ from: start, to: start + 2, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
+    decos.push({ from: end - 2, to: end, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
     decos.push({ from: start + 2, to: end - 2, deco: Decoration.mark({ class: "td-strike" }) });
   }
 
@@ -203,8 +221,8 @@ function addInlineDecorations(decos, base, text, selection, occupied) {
     const end = start + match[0].length;
     if (shouldSkip(start, end)) continue;
     occupied.push([start, end]);
-    decos.push({ from: start, to: start + 1, deco: Decoration.replace({ widget: emptyWidget }) });
-    decos.push({ from: end - 1, to: end, deco: Decoration.replace({ widget: emptyWidget }) });
+    decos.push({ from: start, to: start + 1, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
+    decos.push({ from: end - 1, to: end, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
     decos.push({ from: start + 1, to: end - 1, deco: Decoration.mark({ class: "td-em" }) });
   }
 }
@@ -226,10 +244,9 @@ function buildDecorations(view) {
     let inlineStart = 0;
 
     if (fenceRe.test(text)) {
-      if (!selectionIntersects(selection, lineFrom, lineTo)) {
-        rangeDecos.push({ from: lineFrom, to: lineTo, deco: Decoration.replace({ widget: emptyWidget }) });
-      }
       lineDecos.push({ from: lineFrom, deco: Decoration.line({ class: "td-code-fence-line" }) });
+      // Always apply mark decoration for syntax - CSS will handle visibility
+      rangeDecos.push({ from: lineFrom, to: lineTo, deco: Decoration.mark({ class: "td-fence-syntax" }) });
       inCodeBlock = !inCodeBlock;
       continue;
     }
@@ -242,6 +259,9 @@ function buildDecorations(view) {
     if (hrRe.test(text)) {
       if (!selectionIntersects(selection, lineFrom, lineTo)) {
         rangeDecos.push({ from: lineFrom, to: lineTo, deco: Decoration.replace({ widget: new HrWidget() }) });
+      } else {
+        // When cursor is on line, show syntax with muted styling
+        rangeDecos.push({ from: lineFrom, to: lineTo, deco: Decoration.mark({ class: "td-hr-syntax" }) });
       }
       continue;
     }
@@ -252,7 +272,7 @@ function buildDecorations(view) {
       inlineStart = headingMatch[0].length;
       lineDecos.push({ from: lineFrom, deco: Decoration.line({ class: `td-heading-line td-h${level}` }) });
       if (!selectionIntersects(selection, lineFrom, lineFrom + inlineStart)) {
-        rangeDecos.push({ from: lineFrom, to: lineFrom + inlineStart, deco: Decoration.replace({ widget: emptyWidget }) });
+        rangeDecos.push({ from: lineFrom, to: lineFrom + inlineStart, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
       }
     }
 
@@ -262,7 +282,7 @@ function buildDecorations(view) {
       inlineStart = Math.max(inlineStart, markerLength);
       lineDecos.push({ from: lineFrom, deco: Decoration.line({ class: "td-blockquote-line" }) });
       if (!selectionIntersects(selection, lineFrom, lineFrom + markerLength)) {
-        rangeDecos.push({ from: lineFrom, to: lineFrom + markerLength, deco: Decoration.replace({ widget: emptyWidget }) });
+        rangeDecos.push({ from: lineFrom, to: lineFrom + markerLength, deco: Decoration.mark({ class: "td-syntax-hidden" }) });
       }
     }
 

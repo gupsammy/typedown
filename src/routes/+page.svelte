@@ -365,10 +365,14 @@
     });
 
     const shortcuts = [
-      indentWithTab,
-      ...defaultKeymap,
-      ...historyKeymap,
-      ...searchKeymap,
+      // Custom shortcuts FIRST (highest priority - before defaultKeymap)
+      {
+        key: "Mod-/",
+        run: () => {
+          togglePreview();
+          return true;
+        },
+      },
       {
         key: "Mod-b",
         run: (viewInstance) => wrapSelection(viewInstance, "**"),
@@ -407,13 +411,6 @@
       { key: "Mod--", run: (viewInstance) => adjustHeading(viewInstance, -1) },
       { key: "Mod-f", run: openSearchPanel },
       { key: "Mod-Alt-f", run: openSearchPanel },
-      {
-        key: "Mod-/",
-        run: () => {
-          togglePreview();
-          return true;
-        },
-      },
       {
         key: "Mod-s",
         run: () => {
@@ -462,6 +459,11 @@
           return true;
         },
       },
+      // Default keymaps AFTER custom shortcuts
+      indentWithTab,
+      ...defaultKeymap,
+      ...historyKeymap,
+      ...searchKeymap,
     ];
 
     const state = EditorState.create({
