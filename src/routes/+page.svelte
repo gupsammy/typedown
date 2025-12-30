@@ -14,6 +14,7 @@
   import { previewExtension } from "$lib/editor/preview";
   import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
   import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
 
   let editorEl;
   let view;
@@ -541,6 +542,9 @@
       {/each}
       <button class="tab-add" type="button" on:click={newTab} aria-label="New tab">+</button>
     </nav>
+
+    <!-- Drag region spacer -->
+    <div class="drag-region" on:mousedown={() => getCurrentWindow().startDragging()}></div>
 
     <!-- Minimal actions on the right -->
     <div class="header-actions">

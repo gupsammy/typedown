@@ -114,13 +114,18 @@ a {
 .header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   height: 38px;
   padding: 0 12px 0 78px; /* Space for traffic lights on macOS */
   background: var(--surface-1);
   border-bottom: 1px solid var(--surface-2);
   position: relative;
   z-index: 100;
+}
+
+.drag-region {
+  flex: 1;
+  height: 100%;
+  cursor: grab;
 }
 
 /* Tab strip */
@@ -146,6 +151,7 @@ a {
   cursor: pointer;
   transition: all var(--duration-fast) ease;
   white-space: nowrap;
+  -webkit-app-region: no-drag;
 }
 
 .tab:hover {
@@ -202,6 +208,7 @@ a {
   color: var(--ink-ghost);
   cursor: pointer;
   transition: all var(--duration-fast) ease;
+  -webkit-app-region: no-drag;
 }
 
 .tab-add:hover {
@@ -228,6 +235,7 @@ a {
   color: var(--ink-tertiary);
   cursor: pointer;
   transition: all var(--duration-fast) ease;
+  -webkit-app-region: no-drag;
 }
 
 .header-btn:hover {
