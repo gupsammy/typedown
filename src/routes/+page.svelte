@@ -515,130 +515,70 @@
 </script>
 
 <main class="app">
-  <!-- Unified Header -->
+  <!-- Minimal Header - just drag region and window controls space -->
   <header class="header" data-tauri-drag-region>
-    <!-- Document Title (centered) -->
-    <div class="doc-title">
-      <span>{activeTab?.title ?? "TypeDown"}</span>
-      {#if activeTab?.dirty}
-        <span class="unsaved-dot"></span>
-      {/if}
-    </div>
-
-    <!-- Tabs (right side) -->
+    <!-- Tab strip on the left, after traffic lights space -->
     <nav class="tabs">
       {#each tabs as tab (tab.id)}
-        <div
+        <button
           class="tab"
           class:active={tab.id === activeTabId}
-          role="button"
-          tabindex="0"
+          type="button"
           on:click={() => selectTab(tab.id)}
-          on:keydown={(e) => e.key === 'Enter' && selectTab(tab.id)}
         >
-          <span>{tab.title}</span>
           {#if tab.dirty}
-            <span class="dirty-indicator"></span>
+            <span class="tab-dirty"></span>
           {/if}
-          <button
+          <span class="tab-name">{tab.title}</span>
+          <span
             class="tab-close"
-            type="button"
+            role="button"
+            tabindex="-1"
             on:click|stopPropagation={() => closeTab(tab.id)}
-            aria-label="Close tab"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+            on:keydown|stopPropagation={(e) => e.key === 'Enter' && closeTab(tab.id)}
+          >×</span>
+        </button>
       {/each}
-      <button class="tab tab-new" type="button" on:click={newTab} aria-label="New tab">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-          <path d="M12 5v14M5 12h14" />
+      <button class="tab-add" type="button" on:click={newTab} aria-label="New tab">+</button>
+    </nav>
+
+    <!-- Minimal actions on the right -->
+    <div class="header-actions">
+      <button class="header-btn" type="button" on:click={openFile} title="Open (⌘O)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M3 7v13a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
         </svg>
       </button>
-    </nav>
+      <button class="header-btn" type="button" on:click={saveFile} title="Save (⌘S)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+          <polyline points="17,21 17,13 7,13 7,21" />
+          <polyline points="7,3 7,8 15,8" />
+        </svg>
+      </button>
+      <button
+        class="header-btn"
+        class:active={!previewMode}
+        type="button"
+        on:click={togglePreview}
+        title="Toggle source/preview (⌘/)"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <polyline points="4,17 10,11 4,5" />
+          <line x1="12" y1="19" x2="20" y2="19" />
+        </svg>
+      </button>
+    </div>
   </header>
 
-  <!-- Toolbar -->
-  <div class="toolbar-wrapper">
-    <div class="toolbar">
-      <div class="toolbar-group">
-        <button class="toolbar-btn" type="button" on:click={openFile} title="Open file (Cmd+O)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path d="M3 7v13a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-          </svg>
-          <span>Open</span>
-        </button>
-        <button class="toolbar-btn" type="button" on:click={saveFile} title="Save file (Cmd+S)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
-            <polyline points="17,21 17,13 7,13 7,21" />
-            <polyline points="7,3 7,8 15,8" />
-          </svg>
-          <span>Save</span>
-        </button>
-      </div>
-
-      <div class="toolbar-divider"></div>
-
-      <div class="toolbar-group">
-        <button
-          class="toolbar-btn"
-          class:active={previewMode}
-          type="button"
-          on:click={togglePreview}
-          title="Toggle preview mode (Cmd+/)"
-        >
-          {#if previewMode}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-            <span>Preview</span>
-          {:else}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <polyline points="16,18 22,18 22,6 9,6 9,12" />
-              <polyline points="8,6 2,6 2,18 15,18 15,12" />
-            </svg>
-            <span>Source</span>
-          {/if}
-        </button>
-      </div>
-
-      <div class="toolbar-divider"></div>
-
-      <div class="toolbar-group">
-        <button
-          class="toolbar-btn"
-          type="button"
-          on:click={() => view && openSearchPanel(view)}
-          title="Find (Cmd+F)"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <circle cx="11" cy="11" r="8" />
-            <path d="M21 21l-4.35-4.35" />
-          </svg>
-          <span>Find</span>
-        </button>
-      </div>
-    </div>
-  </div>
-
   <!-- Editor Area -->
-  <section class="editor-shell">
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <section class="editor-shell" on:click={() => view?.focus()}>
     <div class="editor-container">
-      <!-- Empty State -->
+      <!-- Empty State - subtle hint, doesn't block clicks -->
       {#if isEmpty}
         <div class="empty-state">
-          <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M12 19l-7-7 7-7" />
-            <path d="M19 12H5" />
-          </svg>
-          <h2 class="empty-state-title">Start writing</h2>
-          <p class="empty-state-hint">
-            Begin typing to create your document, or press <kbd>Cmd+O</kbd> to open an existing file.
-          </p>
+          <p class="empty-state-hint">Start writing...</p>
         </div>
       {/if}
 
