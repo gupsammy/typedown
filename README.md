@@ -8,9 +8,11 @@ A minimal, elegant markdown editor built with Tauri, SvelteKit, and CodeMirror.
 - [Rust](https://rustup.rs/)
 - [Tauri prerequisites](https://tauri.app/start/prerequisites/)
 
-## Development
+## Getting Started
 
 ```bash
+git clone https://github.com/gupsammy/typedown.git
+cd typedown
 npm install
 npm run tauri dev
 ```
