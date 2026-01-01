@@ -806,3 +806,19 @@ button:focus-visible {
   background: var(--surface-2);
   color: var(--ink-primary);
 }
+
+/* ============================================
+   Drag & Drop Overlay
+   ============================================ */
+
+.app.drag-over::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  border: 2px dashed var(--accent);
+  border-radius: 8px;
+  margin: 4px;
+  pointer-events: none;
+  z-index: 9999;
+  animation: fadeIn var(--duration-fast) ease;
+}

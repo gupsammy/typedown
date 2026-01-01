@@ -36,6 +36,9 @@
   let cursorLine = 1;
   let cursorColumn = 1;
 
+  // Drag-and-drop state
+  let isDragging = false;
+
   // Confirmation modal state
   let showCloseConfirm = false;
   let pendingCloseTabId = null;
@@ -424,7 +427,39 @@
     return true;
   };
 
+  // Drag-drop unlisten function
+  let unlistenDragDrop = null;
+
   onMount(() => {
+    // Set up drag-and-drop file opening
+    import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
+      getCurrentWindow().onDragDropEvent(async (event) => {
+        if (event.payload.type === "over") {
+          isDragging = true;
+        } else if (event.payload.type === "leave" || event.payload.type === "drop") {
+          isDragging = false;
+        }
+
+        if (event.payload.type === "drop") {
+          for (const path of event.payload.paths) {
+            const ext = path.split(".").pop()?.toLowerCase() || "";
+            if (["md", "markdown", "txt"].includes(ext)) {
+              const content = await readTextFile(path);
+              const tab = createTab({
+                title: baseName(path),
+                content,
+                path,
+              });
+              tabs = [...tabs, tab];
+              selectTab(tab.id);
+            }
+          }
+        }
+      }).then((unlisten) => {
+        unlistenDragDrop = unlisten;
+      });
+    });
+
     // Restore drafts from previous session (async, but we don't await in onMount)
     loadAllDrafts().then((drafts) => {
       if (drafts.length > 0) {
@@ -611,6 +646,7 @@
 
   onDestroy(() => {
     view?.destroy();
+    unlistenDragDrop?.();
   });
 
   $: activeTab = getActiveTab();
@@ -618,7 +654,7 @@
   $: isEmpty = charCount === 0;
 </script>
 
-<main class="app">
+<main class="app" class:drag-over={isDragging}>
   <!-- Minimal Header - just drag region and window controls space -->
   <header class="header" data-tauri-drag-region>
     <!-- Tab strip on the left, after traffic lights space -->
