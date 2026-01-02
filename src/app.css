@@ -558,6 +558,52 @@ a {
   color: var(--ink-tertiary);
 }
 
+/* Frontmatter preview widget */
+.td-frontmatter-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 12px 16px;
+  margin-bottom: 1rem;
+  background: var(--surface-1);
+  border-radius: 8px;
+  border: 1px solid var(--surface-2);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all var(--duration-fast) ease;
+}
+
+.td-frontmatter-preview:hover {
+  background: var(--surface-2);
+  border-color: var(--surface-3);
+}
+
+.td-frontmatter-field {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.td-frontmatter-key {
+  color: var(--ink-tertiary);
+  font-weight: 500;
+  text-transform: lowercase;
+}
+
+.td-frontmatter-key::after {
+  content: ":";
+}
+
+.td-frontmatter-value {
+  color: var(--ink-secondary);
+}
+
+.td-frontmatter-empty {
+  color: var(--ink-ghost);
+  font-style: italic;
+}
+
 /* ============================================
    Status Bar
    ============================================ */

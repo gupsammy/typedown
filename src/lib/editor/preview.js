@@ -81,6 +81,59 @@ class HrWidget extends WidgetType {
   }
 }
 
+class FrontmatterWidget extends WidgetType {
+  constructor(content) {
+    super();
+    this.content = content;
+  }
+  eq(other) {
+    return other.content === this.content;
+  }
+  toDOM() {
+    const wrap = document.createElement("div");
+    wrap.className = "td-frontmatter-preview";
+
+    // Parse YAML-like content into key-value pairs
+    const lines = this.content.split("\n").filter(line => line.trim() && line.trim() !== "---");
+
+    if (lines.length === 0) {
+      const empty = document.createElement("span");
+      empty.className = "td-frontmatter-empty";
+      empty.textContent = "Empty frontmatter";
+      wrap.appendChild(empty);
+      return wrap;
+    }
+
+    lines.forEach(line => {
+      const colonIndex = line.indexOf(":");
+      if (colonIndex > 0) {
+        const key = line.slice(0, colonIndex).trim();
+        const value = line.slice(colonIndex + 1).trim();
+
+        const field = document.createElement("span");
+        field.className = "td-frontmatter-field";
+
+        const keyEl = document.createElement("span");
+        keyEl.className = "td-frontmatter-key";
+        keyEl.textContent = key;
+
+        const valueEl = document.createElement("span");
+        valueEl.className = "td-frontmatter-value";
+        valueEl.textContent = value;
+
+        field.appendChild(keyEl);
+        field.appendChild(valueEl);
+        wrap.appendChild(field);
+      }
+    });
+
+    return wrap;
+  }
+  ignoreEvent() {
+    return false; // Allow clicks to focus and expand
+  }
+}
+
 class CheckboxWidget extends WidgetType {
   constructor(checked, from, to) {
     super();
@@ -295,8 +348,18 @@ function buildDecorations(view) {
         lineDecos.push({ from: lineFrom, deco: Decoration.line({ class: "td-frontmatter-line td-frontmatter-editing" }) });
         rangeDecos.push({ from: lineFrom, to: lineTo, deco: Decoration.mark({ class: "td-frontmatter-syntax" }) });
       } else {
-        // Collapse frontmatter when cursor is outside
-        lineDecos.push({ from: lineFrom, deco: Decoration.line({ class: "td-frontmatter-line td-frontmatter-collapsed" }) });
+        // Show preview widget on first line, hide other lines
+        if (lineNumber === 1) {
+          const frontmatterContent = doc.sliceString(frontmatterRange.from, frontmatterRange.to);
+          rangeDecos.push({
+            from: lineFrom,
+            to: lineTo,
+            deco: Decoration.replace({ widget: new FrontmatterWidget(frontmatterContent) })
+          });
+        } else {
+          // Hide subsequent frontmatter lines
+          lineDecos.push({ from: lineFrom, deco: Decoration.line({ class: "td-frontmatter-line td-frontmatter-collapsed" }) });
+        }
       }
       continue;
     }
