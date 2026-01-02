@@ -534,6 +534,30 @@ a {
   color: var(--ink-ghost);
 }
 
+/* YAML Frontmatter */
+.cm-line.td-frontmatter-line {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  color: var(--ink-tertiary);
+}
+
+/* Collapsed frontmatter - hidden from view */
+.cm-line.td-frontmatter-collapsed {
+  display: none;
+}
+
+/* Expanded frontmatter when editing */
+.cm-line.td-frontmatter-editing {
+  background: var(--surface-1);
+  border-left: 2px solid var(--ink-ghost);
+  padding-left: 12px;
+  margin-left: -14px;
+}
+
+.td-frontmatter-syntax {
+  color: var(--ink-tertiary);
+}
+
 /* ============================================
    Status Bar
    ============================================ */

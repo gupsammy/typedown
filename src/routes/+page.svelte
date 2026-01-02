@@ -427,6 +427,28 @@
     return true;
   };
 
+  // Smart paste: when pasting a URL over selected text, create a markdown link
+  const smartPasteHandler = EditorView.domEventHandlers({
+    paste(event, viewInstance) {
+      const clipText = event.clipboardData?.getData("text/plain") || "";
+      const { from, to } = viewInstance.state.selection.main;
+
+      // Only activate when there's a selection AND pasted content is a URL
+      if (from !== to && /^https?:\/\/\S+$/.test(clipText.trim())) {
+        event.preventDefault();
+        const selectedText = viewInstance.state.doc.sliceString(from, to);
+        const url = clipText.trim();
+        const insert = `[${selectedText}](${url})`;
+        viewInstance.dispatch({
+          changes: { from, to, insert },
+          selection: { anchor: from + 1, head: from + 1 + selectedText.length },
+        });
+        return true;
+      }
+      return false;
+    },
+  });
+
   // Drag-drop unlisten function
   let unlistenDragDrop = null;
 
@@ -615,6 +637,7 @@
         highlightSelectionMatches(),
         keymap.of(shortcuts),
         updateListener,
+        smartPasteHandler,
         previewCompartment.of(previewMode ? previewExtension : []),
       ],
     });

@@ -117,6 +117,7 @@ const taskRe = /^(\s*)[-*+]\s+\[( |x|X)\]\s+/;
 const orderedRe = /^(\s*)(\d+)\.\s+/;
 const unorderedRe = /^(\s*)([-*+])\s+/;
 const fenceRe = /^```/;
+const frontmatterStartRe = /^---\s*$/;
 
 const codeSpanRe = /`([^`\n]+)`/g;
 const imageRe = /!\[([^\]]*)\]\(([^)]+)\)/g;
@@ -242,10 +243,27 @@ function buildDecorations(view) {
   const { doc, selection } = view.state;
   let inCodeBlock = false;
 
+  // Detect YAML frontmatter at start of document
+  let frontmatterRange = null;
+  if (doc.lines >= 1) {
+    const firstLine = doc.line(1);
+    if (frontmatterStartRe.test(firstLine.text)) {
+      // Look for closing ---
+      for (let lineNumber = 2; lineNumber <= doc.lines; lineNumber++) {
+        const line = doc.line(lineNumber);
+        if (frontmatterStartRe.test(line.text)) {
+          frontmatterRange = { from: firstLine.from, to: line.to, endLine: lineNumber };
+          break;
+        }
+      }
+    }
+  }
+
   // First pass: collect code block ranges for expand-on-focus
   const codeBlockRanges = [];
   let blockStart = null;
-  for (let lineNumber = 1; lineNumber <= doc.lines; lineNumber++) {
+  const startLine = frontmatterRange ? frontmatterRange.endLine + 1 : 1;
+  for (let lineNumber = startLine; lineNumber <= doc.lines; lineNumber++) {
     const line = doc.line(lineNumber);
     if (fenceRe.test(line.text)) {
       if (blockStart === null) {
@@ -268,6 +286,20 @@ function buildDecorations(view) {
     const lineTo = line.to;
     const occupied = [];
     let inlineStart = 0;
+
+    // Handle YAML frontmatter lines
+    if (frontmatterRange && lineNumber <= frontmatterRange.endLine) {
+      const cursorInFrontmatter = selectionIntersects(selection, frontmatterRange.from, frontmatterRange.to);
+      if (cursorInFrontmatter) {
+        // Show frontmatter with muted styling when cursor is inside
+        lineDecos.push({ from: lineFrom, deco: Decoration.line({ class: "td-frontmatter-line td-frontmatter-editing" }) });
+        rangeDecos.push({ from: lineFrom, to: lineTo, deco: Decoration.mark({ class: "td-frontmatter-syntax" }) });
+      } else {
+        // Collapse frontmatter when cursor is outside
+        lineDecos.push({ from: lineFrom, deco: Decoration.line({ class: "td-frontmatter-line td-frontmatter-collapsed" }) });
+      }
+      continue;
+    }
 
     if (fenceRe.test(text)) {
       // Find the code block range that contains this fence
