@@ -400,13 +400,7 @@ a {
   pointer-events: none;
 }
 
-.cm-line.td-code-line:first-of-type::before {
-  border-radius: 8px 8px 0 0;
-}
-
-.cm-line.td-code-line:last-of-type::before {
-  border-radius: 0 0 8px 8px;
-}
+/* Code content lines don't need border-radius - fence lines handle it */
 
 /* Inline elements */
 .td-inline-code {
@@ -507,14 +501,74 @@ a {
 }
 
 /* Code fence lines - normal height, content visibility controlled by class */
+/* Code fence lines - include in code block background */
 .cm-line.td-code-fence-line {
-  /* Keep normal line height for proper cursor positioning and navigation */
+  position: relative;
+  font-family: var(--font-mono);
+}
+
+/* Fence line background */
+.cm-line.td-code-fence-line::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--code-bg);
+  z-index: -3;
+  pointer-events: none;
+}
+
+/* Opening fence - top corners rounded */
+.cm-line.td-fence-open::before {
+  border-radius: 8px 8px 0 0;
+}
+
+/* Closing fence - bottom corners rounded */
+.cm-line.td-fence-close::before {
+  border-radius: 0 0 8px 8px;
 }
 
 /* Collapsed fence content - shows a subtle marker */
 .td-fence-collapsed {
   opacity: 0.3;
   color: var(--ink-ghost);
+}
+
+/* Copy button for code blocks - positioned top-right */
+.td-code-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink-tertiary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  z-index: 10;
+}
+
+.td-code-copy-btn:hover {
+  background: var(--surface-3);
+  color: var(--ink-primary);
+}
+
+.td-code-copy-btn:active {
+  opacity: 0.7;
+}
+
+.td-code-copy-btn.td-copied {
+  color: var(--accent);
+}
+
+.td-code-copy-btn svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* Expanded fence lines when editing - more visible */

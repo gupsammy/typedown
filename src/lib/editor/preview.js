@@ -134,6 +134,61 @@ class FrontmatterWidget extends WidgetType {
   }
 }
 
+class CopyButtonWidget extends WidgetType {
+  constructor(codeFrom, codeTo) {
+    super();
+    this.codeFrom = codeFrom;
+    this.codeTo = codeTo;
+  }
+  eq(other) {
+    return other.codeFrom === this.codeFrom && other.codeTo === this.codeTo;
+  }
+  toDOM(view) {
+    const codeFrom = this.codeFrom;
+    const codeTo = this.codeTo;
+
+    const btn = document.createElement("button");
+    btn.className = "td-code-copy-btn";
+    btn.title = "Copy code";
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+
+    const copyCode = () => {
+      const fullBlock = view.state.doc.sliceString(codeFrom, codeTo);
+      const lines = fullBlock.split("\n");
+      const codeLines = lines.slice(1, -1);
+      const code = codeLines.join("\n");
+      navigator.clipboard.writeText(code).then(() => {
+        btn.classList.add("td-copied");
+        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+        setTimeout(() => {
+          btn.classList.remove("td-copied");
+          btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+        }, 1500);
+      });
+    };
+
+    // Use capture phase to intercept events before CodeMirror
+    btn.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      copyCode();
+    }, { capture: true });
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+    }, { capture: true });
+
+    return btn;
+  }
+  ignoreEvent(event) {
+    // Handle mousedown/click ourselves, ignore other events
+    return event.type !== "mousedown" && event.type !== "click";
+  }
+}
+
 class CheckboxWidget extends WidgetType {
   constructor(checked, from, to) {
     super();
@@ -372,15 +427,26 @@ function buildDecorations(view) {
 
       const cursorInBlock = blockRange &&
         selectionIntersects(selection, blockRange[0], blockRange[1]);
+      const isOpeningFence = !inCodeBlock;
+
+      const fenceClass = isOpeningFence ? "td-fence-open" : "td-fence-close";
 
       if (cursorInBlock) {
         // Show fence with visible styling when cursor is in the code block
-        lineDecos.push({ from: lineFrom, deco: Decoration.line({ class: "td-code-fence-line td-fence-editing" }) });
+        lineDecos.push({ from: lineFrom, deco: Decoration.line({ class: `td-code-fence-line ${fenceClass} td-fence-editing` }) });
         rangeDecos.push({ from: lineFrom, to: lineTo, deco: Decoration.mark({ class: "td-fence-syntax" }) });
       } else {
         // Collapse fence to minimal height - use mark decoration to preserve coordinates
-        lineDecos.push({ from: lineFrom, deco: Decoration.line({ class: "td-code-fence-line" }) });
+        lineDecos.push({ from: lineFrom, deco: Decoration.line({ class: `td-code-fence-line ${fenceClass}` }) });
         rangeDecos.push({ from: lineFrom, to: lineTo, deco: Decoration.mark({ class: "td-fence-collapsed" }) });
+        // Add copy button on the opening fence line (preview mode only)
+        if (isOpeningFence && blockRange) {
+          rangeDecos.push({
+            from: lineTo,
+            to: lineTo,
+            deco: Decoration.widget({ widget: new CopyButtonWidget(blockRange[0], blockRange[1]), side: 1 })
+          });
+        }
       }
       inCodeBlock = !inCodeBlock;
       continue;
@@ -531,6 +597,11 @@ const previewEvents = EditorView.domEventHandlers({
   // Mousedown triggers a view update which rebuilds decorations
   // This ensures syntax reveals immediately when clicking, not after
   mousedown(event, view) {
+    // Only handle single clicks - let CodeMirror handle double/triple clicks for word/line selection
+    if (event.detail > 1) {
+      return false;
+    }
+
     const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
 
     // Handle empty document - position cursor at start
